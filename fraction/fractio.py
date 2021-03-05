@@ -33,6 +33,7 @@ def standard_frac_diff(df: pd.DataFrame,
                        thres: float=.01) -> pd.DataFrame:
     '''
     Compute the d fractional difference of the series.
+    The time series must be a single column dataframe.
 
     Args:
         df (pd.DataFrame): Dataframe with series to be differentiated.
