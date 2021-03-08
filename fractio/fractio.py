@@ -34,10 +34,10 @@ def standard_frac_diff(df: pd.DataFrame,
                        thres: float=.01) -> pd.DataFrame:
     '''
     Compute the d fractional difference of the series.
-    The time series must be a single column dataframe.
 
     Args:
-        df (pd.DataFrame): Dataframe with series to be differentiated.
+        df (pd.DataFrame): Dataframe with series to be differentiated in a single
+                           column.
         d (float): Order of differentiation.
         thres (float): threshold value to drop non-significant weights.
 
@@ -96,10 +96,12 @@ def fixed_window_fracc_diff(df: pd.DataFrame,
                             threshold: float=1e-5) -> pd.DataFrame:
     '''
     Compute the d fractional difference of the series with
-    a fixed width window.
-    The time series must be a single column dataframe.
+    a fixed width window. It defaults to standard fractional
+    differentiation when the length of the weights becomes 0.
+    
     Args:
-        df (pd.DataFrame): Dataframe with series to be differentiated.
+        df (pd.DataFrame): Dataframe with series to be differentiated in a single
+                           column.
         d (float): Order of differentiation.
         threshold (float): threshold value to drop non-significant weights.
     Returns:
