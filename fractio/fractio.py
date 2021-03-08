@@ -44,6 +44,7 @@ def standard_frac_diff(df: pd.DataFrame,
     Returns:
         pd.DataFrame: Dataframe containing differentiated series.
     '''
+    
     w = compute_weights(d, len(df))
     w_ = np.cumsum(abs(w))
     w_ /= w_.iloc[-1]
