@@ -41,7 +41,7 @@ def standard_frac_diff(df: pd.DataFrame,
         thres (float): threshold value to drop non-significant weights.
 
     Returns:
-        pd.DataFrame: Dataframe containing differntiated series.
+        pd.DataFrame: Dataframe containing differentiated series.
     '''
     w = compute_weights(d, len(df))
     w_ = np.cumsum(abs(w))
