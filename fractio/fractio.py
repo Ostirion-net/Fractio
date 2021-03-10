@@ -117,7 +117,7 @@ def fixed_window_fracc_diff(df: pd.DataFrame,
         series_f = df[name].fillna(method='ffill').dropna()
 
         if l > series_f.shape[0]:
-            return fractio.standard_frac_diff(df, d, threshold)
+            return standard_frac_diff(df, d, threshold)
         r = range(l, series_f.shape[0])
         df_ = pd.Series(index=r)
 
