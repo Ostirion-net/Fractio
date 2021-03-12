@@ -23,7 +23,6 @@ def triple_barrier_labels(
     t: int,
     upper: float=None,
     lower: float=None,
-    use_vol: bool=False,
     devs: float=2.5,
     join: bool=False,
     span: int=100) -> pd.DataFrame:
@@ -35,9 +34,8 @@ def triple_barrier_labels(
         t (int): Future periods to obtain the lable for.
         upper (float): Returns for upper limit.
         lower (float): Returns for lower limit.
-        use_vol (bool): Use realized volatility to set limits.
         devs (float): Standard deviations to set the upper and lower return
-                      limits to when use_vol is True.
+                      limits to when no limits passed.
         join (bool): Return a join of the input dataframe and the labels.
         span (int): Span for exponential weighting.
 
