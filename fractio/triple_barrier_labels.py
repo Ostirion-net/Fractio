@@ -47,8 +47,9 @@ def triple_barrier_labels(
     if t < 1:
         raise ValueError("Look ahead time invalid, t<1.")
     # Lower limit must be negative:
-    if lower > 0:
-        raise ValueError("Lower limit must be a negative value.")
+    if lower is not None:
+        if lower > 0: 
+            raise ValueError("Lower limit must be a negative value.")
 
     df.fillna(method='ffill', inplace=True)
 
