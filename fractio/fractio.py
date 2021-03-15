@@ -5,6 +5,7 @@
 import numpy as np
 import pandas as pd
 from statsmodels.tsa.stattools import adfuller
+from scipy.stats import entropy
 
 
 def compute_weights(d: float,
@@ -12,11 +13,9 @@ def compute_weights(d: float,
     '''
     Compute the weights of individual data points
     for fractional differentiation:
-
     Args:
         d (float): Fractional differentiation value.
         size (int): Length of the data series.
-
     Returns:
         pd.DataFrame: Dataframe containing the weights for each point.
     '''
@@ -34,17 +33,15 @@ def standard_frac_diff(df: pd.DataFrame,
                        thres: float=.01) -> pd.DataFrame:
     '''
     Compute the d fractional difference of the series.
-
     Args:
         df (pd.DataFrame): Dataframe with series to be differentiated in a single
                            column.
         d (float): Order of differentiation.
         thres (float): threshold value to drop non-significant weights.
-
     Returns:
         pd.DataFrame: Dataframe containing differentiated series.
     '''
-    
+
     w = compute_weights(d, len(df))
     w_ = np.cumsum(abs(w))
     w_ /= w_.iloc[-1]
@@ -99,7 +96,7 @@ def fixed_window_fracc_diff(df: pd.DataFrame,
     Compute the d fractional difference of the series with
     a fixed width window. It defaults to standard fractional
     differentiation when the length of the weights becomes 0.
-    
+
     Args:
         df (pd.DataFrame): Dataframe with series to be differentiated in a single
                            column.
@@ -160,3 +157,158 @@ def find_stat_series(df: pd.DataFrame,
         if adf_stat < p_value:
             s.columns = ['d='+str(diff)]
             return s
+
+
+def compute_vol(df: pd.DataFrame,
+                span: int=100) -> pd.DataFrame:
+    '''
+    Compute period volatility of returns as exponentially weighted
+    moving standard deviation:
+    Args:
+        df (pd.DataFrame): Dataframe with price series in a single column.
+        span (int): Span for exponential weighting.
+    Returns:
+        pd.DataFrame: Dataframe containing volatility estimates.
+    '''
+    df.fillna(method='ffill', inplace=True)
+    r = df.pct_change()
+    return r.ewm(span=span).std()
+
+
+def triple_barrier_labels(
+    df: pd.DataFrame,
+    t: int,
+    upper: float=None,
+    lower: float=None,
+    devs: float=2.5,
+    join: bool=False,
+    span: int=100) -> pd.DataFrame:
+    '''
+    Compute the triple barrier label for a price time series:
+    Args:
+        df (pd.DataFrame): Dataframe with price series in a single column.
+        t (int): Future periods to obtain the lable for.
+        upper (float): Returns for upper limit.
+        lower (float): Returns for lower limit.
+        devs (float): Standard deviations to set the upper and lower return
+                      limits to when no limits passed.
+        join (bool): Return a join of the input dataframe and the labels.
+        span (int): Span for exponential weighting.
+    Returns:
+        pd.DataFrame: Dataframe containing labels and optinanlly (join=True)
+                      input values.
+    '''
+    # Incorrect time delta:
+    if t < 1:
+        raise ValueError("Look ahead time invalid, t<1.")
+    # Lower limit must be negative:
+    if lower is not None:
+        if lower > 0:
+            raise ValueError("Lower limit must be a negative value.")
+
+    df.fillna(method='ffill', inplace=True)
+
+    lims = np.array([upper, lower])
+
+    labels = pd.DataFrame(index=df.index, columns=['Label'])
+
+    returns = df.pct_change()
+
+    r = range(0, len(df)-1-t)
+    for idx in r:
+        s = returns.iloc[idx:idx+t]
+        minimum = s.cumsum().values.min()
+        maximum = s.cumsum().values.max()
+
+        if not all(np.isfinite(s.cumsum().values)):
+            labels['Label'].iloc[idx] = np.nan
+            continue
+
+        if any(lims == None):
+            vol = compute_vol(df[:idx+t], span)
+
+        if upper is None:
+            u = vol.iloc[idx].values*devs
+        else:
+            u = upper
+
+        if lower is None:
+            l = -vol.iloc[idx].values*devs
+        else:
+            l = lower
+
+        valid = np.isfinite(u) and np.isfinite(l)
+        if not valid:
+            labels['Label'].iloc[idx] = np.nan
+            continue
+
+        if any(s.cumsum().values >= u):
+            labels['Label'].iloc[idx] = 1
+        elif any(s.cumsum().values <= l):
+            labels['Label'].iloc[idx] = -1
+        else:
+            labels['Label'].iloc[idx] = 0
+
+    if join:
+        df = df.join(labels)
+        return df
+
+    return labels
+
+
+def get_entropic_labels(
+               df: pd.DataFrame,
+               side: str = 'max',
+               future_space: np.linspace = np.linspace(2, 90, 40, dtype=int),
+               tbl_settings: dict = {}) -> pd.DataFrame:
+    '''
+    Compute the series of triple barrier labels for a price series that
+    results in the maximum or minimum entropy for label distribution.
+
+    Args:
+        df (pd.Dataframe): Dataframe with price series in a single column.
+        side (str): 'max' or 'min' to select maximum or minimim entropies.
+                    'min' entropy may not result in usable data.
+        future_space (np.linspace): Space of future windows to analyze.
+        tbl_settings (dict): Dictionary with settings for triple_barrier_labels
+                             function.
+
+    Returns:
+        pd.DataFrame: Dataframe with the selected entropy distribution of
+                      labels.
+    '''
+
+    if side not in ['max', 'min']:
+        raise ValueError("Side must be 'max' or 'min'.")
+
+    # Labels:
+    l = {}
+    for f in future_space:
+        # Check this for references:
+        l[fut] = triple_barrier_labels(df, f, **tbl_settings)
+
+    # Counts:
+    c = {}
+    for f in l.keys():
+        s = l[fut].squeeze()
+        c[fut] = s.value_counts(normalize=True)
+
+    # Entropies:
+    e = {}
+    for f, c in c.items():
+        e[f] = entropy(c)
+
+    # Maximum and minimum entropies:
+    max_e = [k for k, v in e.items() if v == max(e.values())][0]
+    min_e = [k for k, v in e.items() if v == min(e.values())][0]
+
+    if side == 'max':
+        e_labels = l[max_e]
+        t = max_e
+
+    if side == 'min':
+        e_labels = l[min_e]
+        t = min_e
+
+    e_labels.columns = ['t_delta='+str(t)]
+    return e_labels
