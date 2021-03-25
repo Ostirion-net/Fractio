@@ -34,14 +34,14 @@ def standard_frac_diff(df: pd.DataFrame,
     '''
     Compute the d fractional difference of the series.
     Args:
-        df (pd.DataFrame): Dataframe with series to be differentiated in a single
-                           column.
+        df (pd.DataFrame): Dataframe with series to be differentiated in a
+                           single column.
         d (float): Order of differentiation.
         thres (float): threshold value to drop non-significant weights.
     Returns:
         pd.DataFrame: Dataframe containing differentiated series.
     '''
-    
+
     w = compute_weights(d, len(df))
     w_ = np.cumsum(abs(w))
     w_ /= w_.iloc[-1]
@@ -96,10 +96,10 @@ def fixed_window_fracc_diff(df: pd.DataFrame,
     Compute the d fractional difference of the series with
     a fixed width window. It defaults to standard fractional
     differentiation when the length of the weights becomes 0.
-    
+
     Args:
-        df (pd.DataFrame): Dataframe with series to be differentiated in a single
-                           column.
+        df (pd.DataFrame): Dataframe with series to be differentiated in a
+                           single column.
         d (float): Order of differentiation.
         threshold (float): threshold value to drop non-significant weights.
     Returns:
@@ -158,6 +158,7 @@ def find_stat_series(df: pd.DataFrame,
             s.columns = ['d='+str(diff)]
             return s
 
+
 def compute_vol(df: pd.DataFrame,
                 span: int=100) -> pd.DataFrame:
     '''
@@ -202,7 +203,7 @@ def triple_barrier_labels(
         raise ValueError("Look ahead time invalid, t<1.")
     # Lower limit must be negative:
     if lower is not None:
-        if lower > 0: 
+        if lower > 0:
             raise ValueError("Lower limit must be a negative value.")
 
     df.fillna(method='ffill', inplace=True)
@@ -257,47 +258,49 @@ def triple_barrier_labels(
 
 def get_entropic_labels(df: pd.DataFrame,
                side: str = 'max',
-               future_space: np.linspace = np.linspace(2,90,40, dtype=int),
+               future_space: np.linspace = np.linspace(2, 90, 40, dtype=int),
                tbl_settings: dict = {}) -> pd.DataFrame:
     '''
-    Compute the series of triple barrier labels for a price series that 
+    Compute the series of triple barrier labels for a price series that
     results in the maximum or minimum entropy for label distribution.
-    
+
     Args:
         df (pd.Dataframe): Dataframe with price series in a single column.
         side (str): 'max' or 'min' to select maximum or minimim entropies.
                     'min' entropy may not result in usable data.
         future_space (np.linspace): Space of future windows to analyze.
-        tbl_settings (dict): Dictionary with settings for triple_barrier_labels function.
-    
+        tbl_settings (dict): Dictionary with settings for triple_barrier_labels
+                             function.
+
     Returns:
-        pd.DataFrame: Dataframe with the selected entropy distribution of labels.
+        pd.DataFrame: Dataframe with the selected entropy distribution of
+                      labels.
     '''
-    
+
     if side not in ['max', 'min']:
         raise ValueError("Side must be 'max' or 'min'.")
-    
+
     # Labels:
     l = {}
     for f in future_space:
         # Check this for references:
         l[f] = triple_barrier_labels(df, f, **tbl_settings)
-        
+
     # Counts:
     c = {}
     for f in l.keys():
-        s = l[fut].squeeze()
-        c[fut] = s.value_counts(normalize=True)
-    
+        s = l[f].squeeze()
+        c[f] = s.value_counts(normalize=True)
+
     # Entropies:
     e = {}
     for f, c in c.items():
         e[f] = entropy(c)
-    
+
     # Maximum and minimum entropies:
-    max_e = [k for k,v in e.items() if v == max(e.values())][0]
-    min_e =  [k for k,v in e.items() if v == min(e.values())][0]
-    
+    max_e = [k for k, v in e.items() if v == max(e.values())][0]
+    min_e = [k for k, v in e.items() if v == min(e.values())][0]
+
     if side == 'max':
         e_labels = l[max_e]
         t = max_e
@@ -307,5 +310,4 @@ def get_entropic_labels(df: pd.DataFrame,
         t = min_e
 
     e_labels.columns = ['t_delta='+str(t)]
-    return e_labels     
-    
+    return e_labels
