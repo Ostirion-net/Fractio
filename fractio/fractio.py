@@ -96,7 +96,6 @@ def fixed_window_fracc_diff(df: pd.DataFrame,
     Compute the d fractional difference of the series with
     a fixed width window. It defaults to standard fractional
     differentiation when the length of the weights becomes 0.
-
     Args:
         df (pd.DataFrame): Dataframe with series to be differentiated in a
                            single column.
@@ -263,7 +262,6 @@ def get_entropic_labels(df: pd.DataFrame,
     '''
     Compute the series of triple barrier labels for a price series that
     results in the maximum or minimum entropy for label distribution.
-
     Args:
         df (pd.Dataframe): Dataframe with price series in a single column.
         side (str): 'max' or 'min' to select maximum or minimim entropies.
@@ -271,7 +269,6 @@ def get_entropic_labels(df: pd.DataFrame,
         future_space (np.linspace): Space of future windows to analyze.
         tbl_settings (dict): Dictionary with settings for triple_barrier_labels
                              function.
-
     Returns:
         pd.DataFrame: Dataframe with the selected entropy distribution of
                       labels.
@@ -311,3 +308,45 @@ def get_entropic_labels(df: pd.DataFrame,
 
     e_labels.columns = ['t_delta='+str(t)]
     return e_labels
+
+
+def cusum_events(df: pd.DataFrame,
+                 h: float=None,
+                 span: int=100,
+                 devs: float=2.5) -> pd.DataFrame:
+    '''
+    Compute CUSUM events for a given price series.
+    Args:
+        df (pd.DataFrame): Dataframe with price time series
+                           in a single column.
+        h (float): Arbitrary cumulative returns value limit to trigger
+                   the CUSUM filter. The filter is symmetric. If h
+                   is None exponentially weighted standard deviation will
+                   be used.
+        span (int): Span for exponential weighting of standard deviation.
+        devs (float): Standard deviations to compute variable
+                      trigger limits if h is not defined.
+    Returns:
+        pd.DataFrame: Dataframe containing differentiated series.
+    '''
+    # Events e:
+    e = pd.DataFrame(0, index=df.index,
+                     columns=['CUSUM_Event'])
+    s_pos = 0
+    s_neg = 0
+    r = df.pct_change()
+
+    for idx in r.index:
+        if h is None:
+            h_ = r[:idx].ewm(span=span).std().values[-1][0]*devs
+        else:
+            h_ = h
+        s_pos = max(0, s_pos+r.loc[idx].values)
+        s_neg = min(0, s_neg+r.loc[idx].values)
+        if s_neg < -h_:
+            s_neg = 0
+            e.loc[idx] = -1
+        elif s_pos > h_:
+            s_pos = 0
+            e.loc[idx] = 1
+    return e
