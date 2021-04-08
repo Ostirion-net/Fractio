@@ -1,6 +1,15 @@
-# (c) 2021 Ostirion.net
-# This code is licensed under MIT license (see LICENSE for details)
+'''
+Implementation of various machine-learning related tools for time series
+analysis. Specifically designed to work with time series represented as
+pandas dataframes.
+Implements some methods presented in:
+Marcos Lopez de Prado. 2018. Advances in Financial Machine Learning (1st. ed.).
+Wiley Publishing.
 
+(c) 2021 Ostirion SLU, Madrid, Spain.
+info@ostirion.net
+This code is licensed under MIT license (see LICENSE for details)
+'''
 
 import numpy as np
 import pandas as pd
@@ -47,12 +56,10 @@ def standard_frac_diff(df: pd.DataFrame,
     w_ /= w_.iloc[-1]
     skip = int((w_ > thres).sum().values)
     results = {}
-    index = df.index
 
     for name in df.columns:
         series_f = df[name].fillna(method='ffill').dropna()
         r = range(skip, series_f.shape[0])
-        df_ = pd.Series(index=r)
         for idx in r:
             if not np.isfinite(df[name].iloc[idx]):
                 continue
@@ -115,7 +122,6 @@ def fixed_window_fracc_diff(df: pd.DataFrame,
         if l > series_f.shape[0]:
             return standard_frac_diff(df, d, threshold)
         r = range(l, series_f.shape[0])
-        df_ = pd.Series(index=r)
 
         for idx in r:
             if not np.isfinite(df[name].iloc[idx]):
@@ -156,6 +162,7 @@ def find_stat_series(df: pd.DataFrame,
         if adf_stat < p_value:
             s.columns = ['d='+str(diff)]
             return s
+    return None
 
 
 def compute_vol(df: pd.DataFrame,
@@ -213,11 +220,12 @@ def triple_barrier_labels(
 
     returns = df.pct_change()
 
+    u = upper
+    l = lower
+
     r = range(0, len(df)-1-t)
     for idx in r:
         s = returns.iloc[idx:idx+t]
-        minimum = s.cumsum().values.min()
-        maximum = s.cumsum().values.max()
 
         if not all(np.isfinite(s.cumsum().values)):
             labels['Label'].iloc[idx] = np.nan
@@ -228,16 +236,12 @@ def triple_barrier_labels(
 
         if upper is None:
             u = vol.iloc[idx].values*devs
-        else:
-            u = upper
 
         if lower is None:
             l = -vol.iloc[idx].values*devs
-        else:
-            l = lower
 
-        valid = np.isfinite(u) and np.isfinite(l)
-        if not valid:
+        is_valid = np.isfinite(u) and np.isfinite(l)
+        if not is_valid:
             labels['Label'].iloc[idx] = np.nan
             continue
 
@@ -258,7 +262,7 @@ def triple_barrier_labels(
 def get_entropic_labels(df: pd.DataFrame,
                side: str = 'max',
                future_space: np.linspace = np.linspace(2, 90, 40, dtype=int),
-               tbl_settings: dict = {}) -> pd.DataFrame:
+               tbl_settings: dict = None) -> pd.DataFrame:
     '''
     Compute the series of triple barrier labels for a price series that
     results in the maximum or minimum entropy for label distribution.
@@ -274,6 +278,9 @@ def get_entropic_labels(df: pd.DataFrame,
                       labels.
     '''
 
+    # Adopt dictionary initialization idiom:
+    tbl_settings = tbl_settings or dict()
+
     if side not in ['max', 'min']:
         raise ValueError("Side must be 'max' or 'min'.")
 
@@ -285,7 +292,7 @@ def get_entropic_labels(df: pd.DataFrame,
 
     # Counts:
     c = {}
-    for f in l.keys():
+    for f in l:
         s = l[f].squeeze()
         c[f] = s.value_counts(normalize=True)
 
@@ -341,8 +348,10 @@ def cusum_events(df: pd.DataFrame,
             h_ = r[:idx].ewm(span=span).std().values[-1][0]*devs
         else:
             h_ = h
+
         s_pos = max(0, s_pos+r.loc[idx].values)
         s_neg = min(0, s_neg+r.loc[idx].values)
+
         if s_neg < -h_:
             s_neg = 0
             e.loc[idx] = -1
